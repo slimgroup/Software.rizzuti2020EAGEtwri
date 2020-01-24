@@ -1,0 +1,15 @@
+# Ignore folders:
+src/__pycache__/
+
+# Ignore files of extension:
+*.txt
+*.jld
+*.odp
+*.pptx
+*.pdf
+*.segy
+*.sgy
+*.png
+*.jpg
+*.npy
+*.sh
