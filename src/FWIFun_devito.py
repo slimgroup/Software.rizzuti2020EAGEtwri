@@ -25,7 +25,7 @@ def objFWI_devito(
     model,
     src_coords, rcv_coords,
     wav,
-    dat,
+    dat, Filter = None,
     mode = "eval",
     dt = None, space_order = 8):
     "Evaluate FWI objective functional/gradients for current m"
@@ -42,7 +42,7 @@ def objFWI_devito(
 
     # Computing residual
     dmod, u = forward(model, src_coords, rcv_coords, wav, dt = dt, space_order = space_order, save = (mode == "grad"))
-    Pres = dat-dmod
+    Pres = applyfilt(dat-dmod, Filter)
 
     # ||P*r||^2
     norm_Pr2 = dt*npla.norm(Pres.reshape(-1))**2
@@ -67,7 +67,7 @@ def objFWI_devito(
         # Setup adjoint source with data
         nt = wav.shape[0]
         rcv = Receiver(name = "rcv", grid = model.grid, ntime = nt, coordinates = rcv_coords)
-        rcv.data[:] = Pres[:]
+        rcv.data[:] = applyfilt_transp(Pres, Filter)[:]
         adjsrc_term = rcv.inject(field = v.backward, expr = rcv*rho*dt**2/m)
         expression += adjsrc_term
 

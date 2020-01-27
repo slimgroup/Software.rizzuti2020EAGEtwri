@@ -19,7 +19,9 @@ function objTWRIdual!(
 	wav::judiVector, dat::judiVector,
 	eps::Array{R, 1};
 	opt = Options(),
+	objfact = 1f0,
 	comp_alpha = true, grad_corr = false, weight_fun_pars = nothing, dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
 
 	if Gm == nothing
@@ -27,7 +29,7 @@ function objTWRIdual!(
 	else
 		mode = "grad"
 	end
-	argout = objTWRIdual(m, n, d, o, nothing, wav, dat, eps; opt = opt, mode = mode, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	argout = objTWRIdual(m, n, d, o, nothing, wav, dat, eps; opt = opt, mode = mode, objfact = objfact, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 	if Gm != nothing
 		fval = argout[1]
 		Gm .= argout[2]
@@ -46,7 +48,9 @@ function objTWRIdual!(
 	wav::judiVector, dat::judiVector,
 	eps::Array{R, 1};
 	opt = Options(),
+	objfact = 1f0,
 	comp_alpha = true, weight_fun_pars = nothing, dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
 
 	if Gm == nothing
@@ -54,7 +58,7 @@ function objTWRIdual!(
 	else
 		mode = "grad"
 	end
-	argout = objTWRIdual(m, n, d, o, y, wav, dat, eps; opt = opt, mode = mode, comp_alpha = comp_alpha, grad_corr = false, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	argout = objTWRIdual(m, n, d, o, y, wav, dat, eps; opt = opt, mode = mode, objfact = objfact, comp_alpha = comp_alpha, grad_corr = false, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 	if Gm != nothing
 		fval = argout[1]
 		Gm .= argout[2]
@@ -76,10 +80,12 @@ function objTWRIdual(
 	eps::Array{R, 1};
 	opt = Options(),
 	mode = "eval",
+	objfact = 1f0,
 	comp_alpha = true, grad_corr = false, weight_fun_pars = nothing, dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
 
-	return objTWRIdual(m, n, d, o, nothing, wav, dat, eps; opt = opt, mode = mode, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	return objTWRIdual(m, n, d, o, nothing, wav, dat, eps; opt = opt, mode = mode, objfact = objfact, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 
 end
 
@@ -90,10 +96,12 @@ function objTWRIdual(
 	eps::Array{R, 1};
 	opt = Options(),
 	mode = "eval",
+	objfact = 1f0,
 	comp_alpha = true, grad_corr = false, weight_fun_pars = nothing, dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
 
-	return objTWRIdual(Model(n, d, o, m), y, wav, dat, eps; opt = opt, mode = mode, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	return objTWRIdual(Model(n, d, o, m), y, wav, dat, eps; opt = opt, mode = mode, objfact = objfact, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 
 end
 
@@ -108,13 +116,15 @@ function objTWRIdual(
 	eps::Array{R, 1};
 	opt = Options(),
 	mode = "eval",
+	objfact = 1f0,
 	comp_alpha = true, grad_corr = false, weight_fun_pars = nothing, dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
 
 	if y == nothing
-		return objTWRIdual_rawinput(m, nothing, wav.geometry, dat.geometry, wav.data, dat.data, eps, 1:length(dat.data); opt = opt, mode = mode, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+		return objTWRIdual_rawinput(m, nothing, wav.geometry, dat.geometry, wav.data, dat.data, eps, 1:length(dat.data); opt = opt, mode = mode, objfact = objfact, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 	else
-		return objTWRIdual_rawinput(m, y.data, wav.geometry, dat.geometry, wav.data, dat.data, eps, 1:length(dat.data); opt = opt, mode = mode, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+		return objTWRIdual_rawinput(m, y.data, wav.geometry, dat.geometry, wav.data, dat.data, eps, 1:length(dat.data); opt = opt, mode = mode, objfact = objfact, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 	end
 
 end
@@ -126,10 +136,12 @@ function objTWRIdual(
 	eps::Array{R, 1};
 	opt = Options(),
 	mode = "eval",
+	objfact = 1f0,
 	comp_alpha = true, grad_corr = false, weight_fun_pars = nothing, dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
 
-	return objTWRIdual(m, nothing, wav, dat, eps; opt = opt, mode = mode, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	return objTWRIdual(m, nothing, wav, dat, eps; opt = opt, mode = mode, objfact = objfact, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 
 end
 
@@ -148,39 +160,53 @@ function objTWRIdual_rawinput(
 	src_idx::UnitRange{Int64};
 	opt = Options(),
 	mode = "eval",
+	objfact = 1f0,
 	comp_alpha = true, grad_corr = false, weight_fun_pars = nothing, dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
+
+	# Setup parallelization
+	p = default_worker_pool()
+	time_modeling_par = remote(objTWRIdual_rawinput)
+	time_modeling = retry(time_modeling_par)
 
 	# Initialize output
 	nsrc = length(src_idx)
 	results = Array{Any}(undef, nsrc)
 
-	# Process shots from source channel
-	for j = 1:nsrc
+	# Process shots from source channel asynchronously
+	@sync begin
+		for j = 1:nsrc
 
-		# Local geometry for current position
-		opt_loc = subsample(opt, j)
-		src_geom_loc = subsample(src_geom, j)
-		rcv_geom_loc = subsample(rcv_geom, j)
+			# Local geometry for current position
+			opt_loc = subsample(opt, j)
+			src_geom_loc = subsample(src_geom, j)
+			rcv_geom_loc = subsample(rcv_geom, j)
 
-		# Selecting variables for current shot index
-		src_data_loc = src_data[j]
-		if y_data == nothing
-			y_data_loc = nothing
-		else
-			y_data_loc = y_data[j]
+			# Selecting variables for current shot index
+			src_data_loc = src_data[j]
+			if y_data == nothing
+				y_data_loc = nothing
+			else
+				y_data_loc = y_data[j]
+			end
+			dat_data_loc = dat_data[j]
+			if isa(Filter, Array{Array{C, 1}, 1})
+				Filter_loc = Filter[j]
+			else
+				Filter_loc = Filter
+			end
+			eps_loc = eps[j]
+			if dt_comp == nothing
+				dt_comp_loc = nothing
+			else
+				dt_comp_loc = dt_comp[j]
+			end
+
+			# Local result
+			results[j] = @spawn objTWRIdual_rawinput(model, y_data_loc, src_geom_loc, rcv_geom_loc, src_data_loc, dat_data_loc, eps_loc, opt = opt_loc; mode = mode, objfact = objfact, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp_loc, Filter = Filter_loc, gradmprec_fun = gradmprec_fun)
+
 		end
-		dat_data_loc = dat_data[j]
-		eps_loc = eps[j]
-		if dt_comp == nothing
-			dt_comp_loc = nothing
-		else
-			dt_comp_loc = dt_comp[j]
-		end
-
-		# Local result
-		results[j] = objTWRIdual_rawinput(model, y_data_loc, src_geom_loc, rcv_geom_loc, src_data_loc, dat_data_loc, eps_loc, opt = opt_loc; mode = mode, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp_loc, gradmprec_fun = gradmprec_fun)
-
 	end
 
 	# Aggregating results
@@ -226,7 +252,9 @@ function objTWRIdual_rawinput(
 	eps::R;
 	opt = Options(),
 	mode = "eval",
+	objfact = 1f0,
 	comp_alpha = true, grad_corr = false, weight_fun_pars = nothing, dt_comp::Union{Nothing, R} = nothing,
+	Filter::Union{Nothing, Array{C, 1}} = nothing,
 	gradmprec_fun = g->g)
 
 	# Setting pre-defined absorbing layer size
@@ -252,7 +280,7 @@ function objTWRIdual_rawinput(
 	rcv_geom = remove_out_of_bounds_receivers(rcv_geom, model)
 
 	# Call to objective with Julia/Devito interface function
-	return objTWRIdual_jldevito(model_py, y_data, model.o, src_geom, rcv_geom, src_data, dat_data, eps; opt = opt, mode = mode, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	return objTWRIdual_jldevito(model_py, y_data, model.o, src_geom, rcv_geom, src_data, dat_data, eps; opt = opt, mode = mode, objfact = objfact, comp_alpha = comp_alpha, grad_corr = grad_corr, weight_fun_pars = weight_fun_pars, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 
 end
 
@@ -269,7 +297,9 @@ function objTWRIdual_jldevito(
 	eps::R;
 	opt = Options(),
 	mode = "eval",
+	objfact = 1f0,
 	comp_alpha = true, grad_corr = false, weight_fun_pars = nothing, dt_comp::Union{Nothing, R} = nothing,
+	Filter::Union{Nothing, Array{C, 1}} = nothing,
 	gradmprec_fun = g->g)
 
 	# Loading python modules for devito implementation of objTWRIdual
@@ -304,27 +334,30 @@ function objTWRIdual_jldevito(
 						R,
 						model_py, y_in_,
 						PyReverseDims(copy(transpose(src_coords))), PyReverseDims(copy(transpose(rcv_coords))),
-						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))),
+						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))), Filter,
 						eps,
 						mode,
+						objfact,
 						comp_alpha, grad_corr, weight_fun_pars, dt_comp, SPACE_ORDER)
 	elseif mode == "grad" && y_in != nothing
 		argout = pycall(devitomod.objTWRIdual_devito,
 						Tuple{R, Array{R, 2}, Array{R, 2}},
 						model_py, y_in_,
 						PyReverseDims(copy(transpose(src_coords))), PyReverseDims(copy(transpose(rcv_coords))),
-						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))),
+						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))), Filter,
 						eps,
 						mode,
+						objfact,
 						comp_alpha, grad_corr, weight_fun_pars, dt_comp, SPACE_ORDER)
 	else
 		argout = pycall(devitomod.objTWRIdual_devito,
 						Tuple{R, Array{R, 2}},
 						model_py, y_in_,
 						PyReverseDims(copy(transpose(src_coords))), PyReverseDims(copy(transpose(rcv_coords))),
-						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))),
+						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))), Filter,
 						eps,
 						mode,
+						objfact,
 						comp_alpha, grad_corr, weight_fun_pars, dt_comp, SPACE_ORDER)
 	end
 

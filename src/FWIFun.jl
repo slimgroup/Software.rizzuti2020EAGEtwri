@@ -20,6 +20,7 @@ function objFWI!(
 	dat::judiVector;
 	opt = Options(),
 	dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
 
 	if Gm == nothing
@@ -27,7 +28,7 @@ function objFWI!(
 	else
 		mode = "grad"
 	end
-	argout = objFWI(m, n, d, o, wav, dat; opt = opt, mode = mode, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	argout = objFWI(m, n, d, o, wav, dat; opt = opt, mode = mode, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 	if Gm != nothing
 		fval = argout[1]
 		Gm .= argout[2]
@@ -49,9 +50,10 @@ function objFWI(
 	dat::judiVector;
 	opt = Options(),
 	mode = "eval", dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
 
-	return objFWI_rawinput(m, wav.geometry, dat.geometry, wav.data, dat.data, 1:length(dat.data); opt = opt, mode = mode, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	return objFWI_rawinput(m, wav.geometry, dat.geometry, wav.data, dat.data, 1:length(dat.data); opt = opt, mode = mode, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 
 end
 
@@ -65,9 +67,10 @@ function objFWI(
 	wav::judiVector, dat::judiVector;
 	opt = Options(),
 	mode = "eval", dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
 
-	return objFWI(Model(n, d, o, m), wav, dat; opt = opt, mode = mode, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	return objFWI(Model(n, d, o, m), wav, dat; opt = opt, mode = mode, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 
 end
 
@@ -84,6 +87,7 @@ function objFWI_rawinput(
 	src_data::Array{R, 2}, dat_data::Array{R, 2};
 	opt = Options(),
 	mode = "eval", dt_comp::Union{Nothing, R} = nothing,
+	Filter::Union{Nothing, Array{C, 1}} = nothing,
 	gradmprec_fun = g->g)
 
 	# Setting pre-defined absorbing layer size
@@ -109,7 +113,7 @@ function objFWI_rawinput(
 	rcv_geom = remove_out_of_bounds_receivers(rcv_geom, model)
 
 	# Call to objective with Julia/Devito interface function
-	return objFWI_jldevito(model_py, model.o, src_geom, rcv_geom, src_data, dat_data; opt = opt, mode = mode, dt_comp = dt_comp, gradmprec_fun = gradmprec_fun)
+	return objFWI_jldevito(model_py, model.o, src_geom, rcv_geom, src_data, dat_data; opt = opt, mode = mode, dt_comp = dt_comp, Filter = Filter, gradmprec_fun = gradmprec_fun)
 
 end
 
@@ -123,32 +127,45 @@ function objFWI_rawinput(
 	src_idx::UnitRange{Int64};
 	opt = Options(),
 	mode = "eval", dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
+	Filter::Union{Nothing, Array{C, 1}, Array{Array{C, 1}, 1}} = nothing,
 	gradmprec_fun = g->g)
+
+	# Setup parallelization
+	p = default_worker_pool()
+	time_modeling_par = remote(objFWI_rawinput)
+	time_modeling = retry(time_modeling_par)
 
 	# Initialize output
 	nsrc = length(src_idx)
 	results = Array{Any}(undef, nsrc)
 
 	# Process shots from source channel asynchronously
-	for j = 1:nsrc
+	@sync begin
+		for j = 1:nsrc
 
-		# Local geometry for current position
-		opt_loc = subsample(opt, j)
-		src_geom_loc = subsample(src_geom, j)
-		rcv_geom_loc = subsample(rcv_geom, j)
+			# Local geometry for current position
+			opt_loc = subsample(opt, j)
+			src_geom_loc = subsample(src_geom, j)
+			rcv_geom_loc = subsample(rcv_geom, j)
 
-		# Selecting variables for current shot index
-		src_data_loc = src_data[j]
-		dat_data_loc = dat_data[j]
-		if dt_comp == nothing
-			dt_comp_loc = nothing
-		else
-			dt_comp_loc = dt_comp[j]
+			# Selecting variables for current shot index
+			src_data_loc = src_data[j]
+			dat_data_loc = dat_data[j]
+			if isa(Filter, Array{Array{C, 1}, 1})
+				Filter_loc = Filter[j]
+			else
+				Filter_loc = Filter
+			end
+			if dt_comp == nothing
+				dt_comp_loc = nothing
+			else
+				dt_comp_loc = dt_comp[j]
+			end
+
+			# Local result
+			results[j] = @spawn objFWI_rawinput(model, src_geom_loc, rcv_geom_loc, src_data_loc, dat_data_loc, opt = opt_loc; mode = mode, dt_comp = dt_comp_loc, Filter = Filter_loc, gradmprec_fun = gradmprec_fun)
+
 		end
-
-		# Local result
-		results[j] = objFWI_rawinput(model, src_geom_loc, rcv_geom_loc, src_data_loc, dat_data_loc, opt = opt_loc; mode = mode, dt_comp = dt_comp_loc, gradmprec_fun = gradmprec_fun)
-
 	end
 
 	# Aggregating results
@@ -184,6 +201,7 @@ function objFWI_jldevito(
 	src_data::Array{R, 2}, dat_data::Array{R, 2};
 	opt = Options(),
 	mode = "eval", dt_comp::Union{Nothing, R} = nothing,
+	Filter::Union{Nothing, Array{C, 1}} = nothing,
 	gradmprec_fun = g->g)
 
 	# Loading python modules for devito implementation of objTWRIdual
@@ -208,7 +226,7 @@ function objFWI_jldevito(
 						R,
 						model_py,
 						PyReverseDims(copy(transpose(src_coords))), PyReverseDims(copy(transpose(rcv_coords))),
-						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))),
+						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))), Filter,
 						mode,
 						dt_comp, SPACE_ORDER)
 	elseif mode == "grad"
@@ -216,7 +234,7 @@ function objFWI_jldevito(
 						Tuple{R, Array{R, 2}},
 						model_py,
 						PyReverseDims(copy(transpose(src_coords))), PyReverseDims(copy(transpose(rcv_coords))),
-						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))),
+						PyReverseDims(copy(transpose(q_in))), PyReverseDims(copy(transpose(dat_in))), Filter,
 						mode,
 						dt_comp, SPACE_ORDER)
 	end

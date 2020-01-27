@@ -25,9 +25,10 @@ def objTWRIdual_devito(
     model, y,
     src_coords, rcv_coords,
     wav,
-    dat,
+    dat, Filter,
     eps,
     mode = "eval",
+    objfact = np.float32(1),
     comp_alpha = True, grad_corr = False, weight_fun_pars = None, dt = None, space_order = 8):
     "Evaluate TWRI objective functional/gradients for current (m, y)"
 
@@ -42,14 +43,14 @@ def objTWRIdual_devito(
     y_was_None = y is None
     if y_was_None:
         u0rcv, u0 = forward(model, src_coords, rcv_coords, wav, dt = dt, space_order = space_order, save = (mode == "grad") and grad_corr)
-        y = dat-u0rcv
-        PTy = y
+        y = applyfilt(dat-u0rcv, Filter)
+        PTy = applyfilt_transp(y, Filter)
 
     # Normalization constants
     nx = np.float32(model.m.size)
     nt, nr = np.float32(y.shape)
     etaf = npla.norm(wav.reshape(-1))/np.sqrt(nt*nx)
-    etad = npla.norm(dat.reshape(-1))/np.sqrt(nt*nr)
+    etad = npla.norm(applyfilt(dat, Filter).reshape(-1))/np.sqrt(nt*nr)
 
     # Compute wavefield vy = adjoint(F(m))*Py
     norm_vPTy2, vPTy_src, vPTy = adjoint_y(model, PTy, src_coords, rcv_coords, weight_fun_pars = weight_fun_pars, dt = dt, space_order = space_order, save = (mode == "grad"))
@@ -91,7 +92,7 @@ def objTWRIdual_devito(
         nt = wav.shape[0]
         src = PointSource(name = "src", grid = model.grid, ntime = nt, coordinates = src_coords)
         src.data[:] = wav[:]
-        src_term = src.inject(field = u.forward, expr = src*rho*dt**2/m)
+        src_term = src.inject(field = u.forward, expr = src*rho*dt**2/m) #######
         expression += src_term
 
         # Setup data sampling at receiver locations
@@ -113,9 +114,9 @@ def objTWRIdual_devito(
         if not y_was_None or grad_corr:
             norm_y = npla.norm(y)
             if norm_y == 0:
-                grady_data = alpha*c2*(dat-rcv.data)
+                grady_data = alpha*c2*applyfilt(dat-rcv.data, Filter)
             else:
-                grady_data = alpha*c2*(dat-rcv.data)-np.abs(alpha)*c3*y/norm_y
+                grady_data = alpha*c2*applyfilt(dat-rcv.data, Filter)-np.abs(alpha)*c3*y/norm_y
 
         # Correcting for reduced gradient
         if not y_was_None or (y_was_None and not grad_corr):
@@ -125,7 +126,7 @@ def objTWRIdual_devito(
         else:
 
             # Compute wavefield vy_ = adjoint(F(m))*grady
-            _, _, vy_ = adjoint_y(model, grady_data, src_coords, rcv_coords, dt = dt, space_order = space_order, save = True)
+            _, _, vy_ = adjoint_y(model, applyfilt_transp(grady_data, Filter), src_coords, rcv_coords, dt = dt, space_order = space_order, save = True)
 
             # Setup reduced gradient wrt m
             gradm_corr = Function(name = "gradmcorr", grid = model.grid)
@@ -142,11 +143,11 @@ def objTWRIdual_devito(
 
     # Return output
     if mode == "eval":
-        return fun
+        return fun/objfact
     elif mode == "grad" and y_was_None:
-        return fun, gradm_data
+        return fun/objfact, gradm_data/objfact
     elif mode == "grad" and not y_was_None:
-        return fun, gradm_data, grady_data
+        return fun/objfact, gradm_data/objfact, grady_data/objfact
 
 
 def compute_optalpha(v1, v2, v3, comp_alpha = True):

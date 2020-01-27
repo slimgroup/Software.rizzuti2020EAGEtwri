@@ -11,6 +11,8 @@ module TWRIdual
 using LinearAlgebra
 using JUDI.TimeModeling
 using PyCall
+using Distributed
+using FFTW, DSP
 using Optim
 
 const R = Float32; export R
@@ -20,6 +22,7 @@ const NB = 100
 
 include("utils.jl")
 include("gendata.jl")
+include("data_filter.jl")
 include("FWIFun.jl")
 include("TWRIdualFun.jl")
 

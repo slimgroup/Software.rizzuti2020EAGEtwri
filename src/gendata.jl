@@ -93,29 +93,36 @@ function gendata_rawinput(
 	dt_comp::Union{Nothing, Array{Any, 1}} = nothing,
 	save_wavefield::Bool = false)
 
+	# Setup parallelization
+	p = default_worker_pool()
+	time_modeling_par = remote(gendata_rawinput)
+	time_modeling = retry(time_modeling_par)
+
 	# Initialize output
 	nsrc = length(src_idx)
 	results = Array{Any}(undef, nsrc)
 
 	# Process shots from source channel asynchronously
-	for j = 1:nsrc
+	@sync begin
+		for j = 1:nsrc
 
-		# Local geometry for current position
-		opt_loc = subsample(opt, j)
-		src_geom_loc = subsample(src_geom, j)
-		rcv_geom_loc = subsample(rcv_geom, j)
+			# Local geometry for current position
+			opt_loc = subsample(opt, j)
+			src_geom_loc = subsample(src_geom, j)
+			rcv_geom_loc = subsample(rcv_geom, j)
 
-		# Selecting variables for current shot index
-		src_data_loc = src_data[j]
-		if dt_comp == nothing
-			dt_comp_loc = nothing
-		else
-			dt_comp_loc = dt_comp[j]
+			# Selecting variables for current shot index
+			src_data_loc = src_data[j]
+			if dt_comp == nothing
+				dt_comp_loc = nothing
+			else
+				dt_comp_loc = dt_comp[j]
+			end
+
+			# Local result
+			results[j] = @spawn gendata_rawinput(model, src_geom_loc, rcv_geom_loc, src_data_loc, opt = opt_loc; dt_comp = dt_comp_loc, save_wavefield = save_wavefield)
+
 		end
-
-		# Local result
-		results[j] = gendata_rawinput(model, src_geom_loc, rcv_geom_loc, src_data_loc, opt = opt_loc; dt_comp = dt_comp_loc, save_wavefield = save_wavefield)
-
 	end
 
 	# Aggregating results

@@ -19,6 +19,7 @@ This software is based on Devito (https://www.devitoproject.org/) and the Julia-
 To install other Julia packages, switch to package manager (using ']') in Julia's REPL) and type:
 
 ```
+ add Distributed
  add Optim
  add PyPlot
  add JLD2

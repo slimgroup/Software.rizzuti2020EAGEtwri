@@ -51,7 +51,7 @@ function proj_bounds(m, mmin, mmax)
     return m
 end
 mmin = 1f0/4f0^2
-mmax = 1f0/1f0^2
+mmax = Inf
 preproc(x) = proj_bounds(contr2abs(x, mask, m0), mmin, mmax)
 postproc(g) = gradprec_contr2abs(g, mask, m0)
 
